@@ -12,6 +12,7 @@ labels = []
 captures = []
 buttons = []
 fullscreen_flags = []
+is_opened_flags = []
 current_frames = [0,0,0,0]
 saved_backgrounds = [0,0,0,0]
 background_check_flags = [0,0,0,0]
@@ -104,12 +105,13 @@ class VideoStreamWindow(QMainWindow):
             labels.append(label)
             layout.addWidget(labels[i], 0, i)  # Add the label to the layout
             # rtsp_link = "rtsp://admin:slowmonth49@192.168.1.100:554/Streaming/channels/101/"
-            # captures.append(cv2.VideoCapture("rtsp://admin:slowmonth49@192.168.1.100:554/Streaming/channels/101/"))
+            captures.append(cv2.VideoCapture("rtsp://admin:slowmonth49@192.168.1.100:554/Streaming/channels/101/"))
             # captures.append(cap)
             # cap.set(cv2.CAP_PROP_USERNAME, username)
             # cap.set(cv2.CAP_PROP_PASSWORD, password)
-            captures.append (cv2.VideoCapture(str(i)+".mp4"))
+            # captures.append (cv2.VideoCapture(str(i)+".mp4"))
             fullscreen_flags.append(0)
+            is_opened_flags.append(0)
             # captures.append (cv2.VideoCapture(i))
 
             button = QPushButton(f"Input {i+1}")
@@ -129,23 +131,23 @@ class VideoStreamWindow(QMainWindow):
         for i in range(1):
             ret, frame = captures[i].read()
             if ret:
-                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                 if background_check_flags[i] == 0:
-                    saved_backgrounds[i] = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    saved_backgrounds[i] = frame
                     show_images[i] = frame
 
-                    background_check_flags[i] = 1
+                    # background_check_flags[i] = 1
                     
-                gray_current = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # gray1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 # gray2 = cv2.cvtColor(saved_backgrounds[i], cv2.COLOR_BGR2GRAY)
 
                 # _, binary1 = cv2.threshold(gray1, 150, 255, cv2.THRESH_BINARY)
                 # _, binary2 = cv2.threshold(gray2, 150, 255, cv2.THRESH_BINARY)
 
-                diff = cv2.absdiff(gray_current, saved_backgrounds[i])      
+                # diff = cv2.absdiff(gray1, gray2)      
                 # # cv2.imshow(str(i), diff)          
-                _, threshold = cv2.threshold(diff, 60, 255, cv2.THRESH_BINARY)
+                # _, threshold = cv2.threshold(diff, 30, 255, cv2.THRESH_BINARY)
                 # cv2.imshow(str(i)+"threshold", threshold)          
                 
 
@@ -159,10 +161,9 @@ class VideoStreamWindow(QMainWindow):
                 
                 # cv2.imshow("noise reduced", closing)
                 # _, threshold = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-                contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                contour_image = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+                # contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 # contour_image = cv2.cvtColor(closing, cv2.COLOR_GRAY2BGR)
-                cv2.drawContours(show_images[i], contours, -1, (0, 255, 0), 2)
+                # cv2.drawContours(show_images[i], contours, -1, (0, 255, 0), 2)
 
                 # cv2.imshow("detection", show_images[i])
 
@@ -175,21 +176,21 @@ class VideoStreamWindow(QMainWindow):
                 # print("Similarity:", similarity)
 
                 if fullscreen_flags[i]:
-                    cv2.imshow("Camera"+str(i), show_images[i])
-                else:
+                    cv2.imshow("Camera"+str(i), frame)
+                    is_opened_flags[i] = 1
+                elif is_opened_flags[i]:
                     try:
                         cv2.destroyWindow("Camera" + str(i))
                     except cv2.error as e:
                         print("An error occurred:", e)
 
                 
-                self.display_frame(labels[i], frame)
+                self.display_frame(labels[i], show_images[i])
 
     def display_frame(self, label, frame):
         height, width, channel = frame.shape
-        frame = cv2.resize(frame, (width//2, height//2))
-        bytes_per_line = channel * width//2
-        q_image = QImage(frame.data, width//2, height//2, bytes_per_line, QImage.Format_RGB888)
+        bytes_per_line = channel * width
+        q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
         q_pixmap = QPixmap.fromImage(q_image)
         label.setPixmap(q_pixmap)
 
