@@ -7,6 +7,7 @@ from PyQt5.QtGui import QImage, QPixmap
 from skimage.metrics import structural_similarity as ssim
 from PIL import Image
 import numpy as np
+import matplotlib.pyplot as plt
 
 labels = []
 captures = []
@@ -120,7 +121,7 @@ class VideoStreamWindow(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(0)
+        self.timer.start(100)
 
         self.show()
 
@@ -144,8 +145,32 @@ class VideoStreamWindow(QMainWindow):
                 # _, binary2 = cv2.threshold(gray2, 150, 255, cv2.THRESH_BINARY)
 
                 diff = cv2.absdiff(gray_current, saved_backgrounds[i])      
+                # gray_diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+                hist = cv2.calcHist([diff], [0], None, [256], [0, 256])
+                hist = hist / hist.sum() * 100
+                # hist_normalized = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
+
+                
+                if hist.max != 0:
+                    # fig, ax = plt.subplots()
+                    # ax.plot(hist_normalized)
+
+                    # ax.set_xlabel('Pixel Value')
+                    # ax.set_ylabel("Frequency")
+                    # ax.set_title("Histogram")
+                    # plt.show()
+
+                    sum=0
+                    for j, bin_val in enumerate(hist):
+                        print(j, ':', bin_val[0])
+                        sum+=bin_val[0]
+                    print(sum)
+                    # total_sum = np.sum(hist_normalized)
+                    # print(total_sum)
+
+                # self.timer.stop()
                 # # cv2.imshow(str(i), diff)          
-                _, threshold = cv2.threshold(diff, 60, 255, cv2.THRESH_BINARY)
+                _, threshold = cv2.threshold(diff, 120, 255, cv2.THRESH_BINARY)
                 # cv2.imshow(str(i)+"threshold", threshold)          
                 
 
