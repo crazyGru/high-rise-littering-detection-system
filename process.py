@@ -7,58 +7,43 @@ from PyQt5.QtGui import QImage, QPixmap
 from skimage.metrics import structural_similarity as ssim
 from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
+import threading
+# import matplotlib.pyplot as plt
 
 labels = []
 captures = []
 buttons = []
 fullscreen_flags = []
-current_frames = [0,0,0,0]
-saved_backgrounds = [0,0,0,0]
+current_frames = []
+saved_backgrounds = []
 background_check_flags = [0,0,0,0]
-show_images = [0,0,0,0]
+show_images = []
 
-class SimpleDialog(QDialog):
-    def __init__(self, message, index):
-        super().__init__()
-        self.setWindowTitle("Camera " + str(index+1))
-        self.setStyleSheet("background-color: pink;")
-        self.index = index
-        
-        # Get the screen geometry
-        screen = QApplication.primaryScreen()
-        screen_geometry = screen.geometry()
-        screen_height = int(screen_geometry.height() * 0.9)
-        height, width, channel = show_images[self.index].shape
-        screen_width = int(screen_height * width / height)
-        
-        # Set the dialog height to match the screen height
-        self.setFixedHeight(screen_height)
-        self.setFixedWidth(screen_width)
-        
-        layout = QVBoxLayout(self)
-        self.label = QLabel(message)
-        self.label.setStyleSheet("border: 2px solid purple; background-color: #f0f0f0;")  # Set border and background color
-        layout.addWidget(self.label)
-        
-        self.setLayout(layout)
+test_thread = 0
+val=0
 
-        timer = QTimer(self)
-        timer.timeout.connect(self.display_frame)
-        timer.start(100)
+def mainThread():
+    global test_thread
+    global show_images
+    global current_frames
+    index = 0
+    while True:
+        if len(current_frames):
+            current_gray = cv2.cvtColor(current_frames[index], cv2.COLOR_BGR2GRAY)
+            diff = cv2.absdiff(current_gray, saved_backgrounds[index])      
+            # hist = cv2.calcHist([diff], [0], None, [256], [0, 256])
+            # hist = hist / hist.sum() * 100
+            # hist_normalized = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
+            _, threshold = cv2.threshold(diff, 120, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(show_images[index], contours, -1, (0, 255, 0), 2)
 
-        self.show()
 
-    def display_frame(self):
-        height, width, channel = show_images[self.index].shape
-        bytes_per_line = channel * width
-        q_image = QImage(show_images[self.index].data, width, height, bytes_per_line, QImage.Format_RGB888)
-        q_pixmap = QPixmap.fromImage(q_image)
-        
-        # Scale the pixmap to fill the window
-        scaled_pixmap = q_pixmap.scaled(self.label.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        
-        self.label.setPixmap(scaled_pixmap)
+        # print(test_thread)
+
+
+main_thread = threading.Thread(target = mainThread)
+main_thread.start()
 
 def button_clicked(button_index):
     # Perform actions based on the button index
@@ -100,7 +85,7 @@ class VideoStreamWindow(QMainWindow):
             label = QLabel(f"Square {i+1}")
             label.setAlignment(Qt.AlignCenter)
             label.setStyleSheet("border: 2px solid purple; background-color: #f0f0f0;")  # Set border and background color
-            label.setFixedSize(1000,800)
+            label.setFixedSize(500,300)
             
             labels.append(label)
             layout.addWidget(labels[i], 0, i)  # Add the label to the layout
@@ -121,7 +106,7 @@ class VideoStreamWindow(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(100)
+        self.timer.start(0)
 
         self.show()
 
@@ -130,28 +115,47 @@ class VideoStreamWindow(QMainWindow):
         for i in range(1):
             ret, frame = captures[i].read()
             if ret:
+                # print(test_thread)
+                frame = cv2.resize(frame, (500, 300))
                 # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
+                self.display_frame(labels[i], frame)
+                
                 if background_check_flags[i] == 0:
-                    saved_backgrounds[i] = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                    show_images[i] = frame
+                    saved_backgrounds.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+                    show_images.append(frame)
+                    current_frames.append(frame)
 
                     background_check_flags[i] = 1
+                
+                current_frames[i]=frame
+
+                if fullscreen_flags[i]:
+                    cv2.imshow("Camera"+str(i), show_images[i])
+                else:
+                    try:
+                        cv2.destroyWindow("Camera" + str(i))
+                    except cv2.error as e:
+                        a=0
+                    continue
+
+
+
+                
                     
-                gray_current = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # gray_current = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 # gray2 = cv2.cvtColor(saved_backgrounds[i], cv2.COLOR_BGR2GRAY)
 
                 # _, binary1 = cv2.threshold(gray1, 150, 255, cv2.THRESH_BINARY)
                 # _, binary2 = cv2.threshold(gray2, 150, 255, cv2.THRESH_BINARY)
 
-                diff = cv2.absdiff(gray_current, saved_backgrounds[i])      
+                # diff = cv2.absdiff(gray_current, saved_backgrounds[i])      
                 # gray_diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
-                hist = cv2.calcHist([diff], [0], None, [256], [0, 256])
-                hist = hist / hist.sum() * 100
+                # hist = cv2.calcHist([diff], [0], None, [256], [0, 256])
+                # hist = hist / hist.sum() * 100
                 # hist_normalized = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
 
                 
-                if hist.max != 0:
+                # if hist.max != 0:
                     # fig, ax = plt.subplots()
                     # ax.plot(hist_normalized)
 
@@ -160,17 +164,17 @@ class VideoStreamWindow(QMainWindow):
                     # ax.set_title("Histogram")
                     # plt.show()
 
-                    sum=0
-                    for j, bin_val in enumerate(hist):
-                        print(j, ':', bin_val[0])
-                        sum+=bin_val[0]
-                    print(sum)
+                    # sum=0
+                    # for j, bin_val in enumerate(hist):
+                    #     print(j, ':', bin_val[0])
+                    #     sum+=bin_val[0]
+                    # print(sum)
                     # total_sum = np.sum(hist_normalized)
                     # print(total_sum)
 
                 # self.timer.stop()
                 # # cv2.imshow(str(i), diff)          
-                _, threshold = cv2.threshold(diff, 120, 255, cv2.THRESH_BINARY)
+                # _, threshold = cv2.threshold(diff, 120, 255, cv2.THRESH_BINARY)
                 # cv2.imshow(str(i)+"threshold", threshold)          
                 
 
@@ -184,10 +188,20 @@ class VideoStreamWindow(QMainWindow):
                 
                 # cv2.imshow("noise reduced", closing)
                 # _, threshold = cv2.threshold(closing, 127, 255, cv2.THRESH_BINARY)
-                contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                contour_image = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
+                # contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                # contour_image = cv2.cvtColor(threshold, cv2.COLOR_GRAY2BGR)
                 # contour_image = cv2.cvtColor(closing, cv2.COLOR_GRAY2BGR)
-                cv2.drawContours(show_images[i], contours, -1, (0, 255, 0), 2)
+                # cv2.drawContours(show_images[i], contours, -1, (0, 255, 0), 2)
+
+                # route = []
+                # for contour in contours:
+                #     for point in contour:
+                #         x, y = point[0]
+                #         route.append((x, y))
+                #         cv2.circle(show_images[i], (x, y), 2, (0, 255, 0), -1)
+
+                # if len(route) > 1:
+                #     cv2.polylines(show_images[i], np.array([route], dtype=np.int32), False, (0, 255, 0), 1)
 
                 # cv2.imshow("detection", show_images[i])
 
@@ -197,26 +211,20 @@ class VideoStreamWindow(QMainWindow):
                 #     background_check_flags[i] = 0
                     # print("!!!!!!!!!!!!Background Has Changed!!!!!!!!!!!!!!")
                     # self.timer.stop()
-                # print("Similarity:", similarity)
-
-                if fullscreen_flags[i]:
-                    cv2.imshow("Camera"+str(i), show_images[i])
-                else:
-                    try:
-                        cv2.destroyWindow("Camera" + str(i))
-                    except cv2.error as e:
-                        print("An error occurred:", e)
+                # print("Similarity:", similarity)              
 
                 
-                self.display_frame(labels[i], frame)
+                
 
     def display_frame(self, label, frame):
         height, width, channel = frame.shape
-        frame = cv2.resize(frame, (width//2, height//2))
-        bytes_per_line = channel * width//2
-        q_image = QImage(frame.data, width//2, height//2, bytes_per_line, QImage.Format_RGB888)
+        # frame = cv2.resize(frame, (width//2, height//2))
+        bytes_per_line = channel * width
+        q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
         q_pixmap = QPixmap.fromImage(q_image)
         label.setPixmap(q_pixmap)
+
+
 
 app = QApplication([])
 window = VideoStreamWindow()
