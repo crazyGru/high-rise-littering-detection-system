@@ -53,8 +53,10 @@ def mainThread():
             _, threshold = cv2.threshold(diff, 60, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(show_images[index], contours, -1, (0, 255, 0), 2)
-            fullscreen_focus_part[index] = show_images[index][area_center_point["y"]-default_scale * default_edge_length:area_center_point["y"]+default_scale * default_edge_length,
-                                                              area_center_point["x"]-default_scale * default_edge_length:area_center_point["x"]+default_scale * default_edge_length]
+            fullscreen_focus_part[index] = show_images[index][int((area_center_point["y"]-default_scale * default_edge_length)/DEFAULT_WINDOW_HEIGHT*stream_height):
+                                                              int((area_center_point["y"]+default_scale * default_edge_length)/DEFAULT_WINDOW_HEIGHT*stream_height),
+                                                              int((area_center_point["x"]-default_scale * default_edge_length)/DEFAULT_WINDOW_WIDTH*stream_width):
+                                                              int((area_center_point["x"]+default_scale * default_edge_length)/DEFAULT_WINDOW_WIDTH*stream_width)]
 
 
         # print(test_thread)
