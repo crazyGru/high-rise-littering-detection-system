@@ -1,4 +1,5 @@
 import sys
+from PyQt5 import QtGui
 import cv2
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QGridLayout, QLabel
 from PyQt5.QtWidgets import QLabel, QVBoxLayout, QDialog, QPushButton
@@ -10,6 +11,9 @@ import numpy as np
 import threading
 # import matplotlib.pyplot as plt
 
+DEFAULT_WINDOW_WIDTH = 500
+DEFAULT_WINDOW_HEIGHT = 300
+
 labels = []
 captures = []
 buttons = []
@@ -19,24 +23,38 @@ saved_backgrounds = []
 background_check_flags = [0,0,0,0]
 show_images = []
 
+fullscreen_focus_part = []
+
+
 test_thread = 0
 val=0
+
+area_center_point = {"x":100.0, "y":100.0}
+default_edge_length = 100.0
+default_scale = 1.0
+
+stream_width = 0
+stream_height = 0
+
+running_app = True
 
 def mainThread():
     global test_thread
     global show_images
     global current_frames
     index = 0
-    while True:
+    while running_app:
         if len(current_frames):
             current_gray = cv2.cvtColor(current_frames[index], cv2.COLOR_BGR2GRAY)
             diff = cv2.absdiff(current_gray, saved_backgrounds[index])      
             # hist = cv2.calcHist([diff], [0], None, [256], [0, 256])
             # hist = hist / hist.sum() * 100
             # hist_normalized = cv2.normalize(hist, hist, 0, 255, cv2.NORM_MINMAX)
-            _, threshold = cv2.threshold(diff, 120, 255, cv2.THRESH_BINARY)
+            _, threshold = cv2.threshold(diff, 60, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(show_images[index], contours, -1, (0, 255, 0), 2)
+            fullscreen_focus_part[index] = show_images[index][area_center_point["y"]-default_scale * default_edge_length:area_center_point["y"]+default_scale * default_edge_length,
+                                                              area_center_point["x"]-default_scale * default_edge_length:area_center_point["x"]+default_scale * default_edge_length]
 
 
         # print(test_thread)
@@ -106,7 +124,7 @@ class VideoStreamWindow(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frames)
-        self.timer.start(0)
+        self.timer.start(100)
 
         self.show()
 
@@ -116,31 +134,32 @@ class VideoStreamWindow(QMainWindow):
             ret, frame = captures[i].read()
             if ret:
                 # print(test_thread)
-                frame = cv2.resize(frame, (500, 300))
+                mini_view = cv2.resize(frame, (500, 300))
                 # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                self.display_frame(labels[i], frame)
+                self.display_frame(labels[i], mini_view)
                 
                 if background_check_flags[i] == 0:
+                    global stream_height, stream_width
+                    stream_height, stream_width, _ = frame.shape
                     saved_backgrounds.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
                     show_images.append(frame)
                     current_frames.append(frame)
+                    fullscreen_focus_part.append(frame[int(area_center_point["y"]-default_scale * default_edge_length):int(area_center_point["y"]+default_scale * default_edge_length),
+                                                       int(area_center_point["x"]-default_scale * default_edge_length):int(area_center_point["x"]+default_scale * default_edge_length)])
 
                     background_check_flags[i] = 1
+                
                 
                 current_frames[i]=frame
 
                 if fullscreen_flags[i]:
-                    cv2.imshow("Camera"+str(i), show_images[i])
+                    cv2.imshow("Camera"+str(i), fullscreen_focus_part[i])
                 else:
                     try:
                         cv2.destroyWindow("Camera" + str(i))
                     except cv2.error as e:
                         a=0
-                    continue
-
-
-
-                
+                    continue                
                     
                 # gray_current = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 # gray2 = cv2.cvtColor(saved_backgrounds[i], cv2.COLOR_BGR2GRAY)
@@ -213,10 +232,10 @@ class VideoStreamWindow(QMainWindow):
                     # self.timer.stop()
                 # print("Similarity:", similarity)              
 
-                
-                
-
     def display_frame(self, label, frame):
+        cv2.rectangle(frame, (int(area_center_point["x"]-default_scale * default_edge_length), int(area_center_point["y"]-default_scale * default_edge_length)),
+                             (int(area_center_point["x"]+default_scale * default_edge_length), int(area_center_point["y"]+default_scale * default_edge_length)),
+                             (0, 255, 0), 2)
         height, width, channel = frame.shape
         # frame = cv2.resize(frame, (width//2, height//2))
         bytes_per_line = channel * width
@@ -224,8 +243,39 @@ class VideoStreamWindow(QMainWindow):
         q_pixmap = QPixmap.fromImage(q_image)
         label.setPixmap(q_pixmap)
 
+    def keyPressEvent(self, event):
+        key = event.key()
+        global default_scale
+        if key == Qt.Key_E:
+            print("+ key pressed")
+            default_scale += 0.1
+        elif key == Qt.Key_Q:
+            print("- key pressed")
+            default_scale -= 0.1
+        elif key == Qt.Key_W:
+            print("W key pressed")
+            area_center_point["y"] -= 10
+            if area_center_point["y"] < default_scale * default_edge_length:
+                area_center_point["y"] = default_scale * default_edge_length
+        elif key == Qt.Key_A:
+            print("A key pressed")
+            area_center_point["x"] -= 10
+            if area_center_point["x"] < default_scale * default_edge_length:
+                area_center_point["x"] = default_scale * default_edge_length
+        elif key == Qt.Key_S:
+            print("S key pressed")
+            area_center_point["y"] += 10
+            if area_center_point["y"] > DEFAULT_WINDOW_HEIGHT - default_scale * default_edge_length:
+                area_center_point["y"] = DEFAULT_WINDOW_HEIGHT - default_scale * default_edge_length
+        elif key == Qt.Key_D:
+            print("D key pressed")
+            area_center_point["x"] += 10
+            if area_center_point["x"] > DEFAULT_WINDOW_WIDTH - default_scale * default_edge_length:
+                area_center_point["x"] = DEFAULT_WINDOW_WIDTH - default_scale * default_edge_length
 
 
 app = QApplication([])
 window = VideoStreamWindow()
 app.exec_()
+cv2.destroyAllWindows()
+running_app = False
