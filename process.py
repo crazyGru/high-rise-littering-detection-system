@@ -53,10 +53,12 @@ def mainThread():
             _, threshold = cv2.threshold(diff, 60, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(threshold, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(show_images[index], contours, -1, (0, 255, 0), 2)
-            fullscreen_focus_part[index] = show_images[index][int((area_center_point["y"]-default_scale * default_edge_length)/DEFAULT_WINDOW_HEIGHT*stream_height):
+            temp = show_images[index][int((area_center_point["y"]-default_scale * default_edge_length)/DEFAULT_WINDOW_HEIGHT*stream_height):
                                                               int((area_center_point["y"]+default_scale * default_edge_length)/DEFAULT_WINDOW_HEIGHT*stream_height),
                                                               int((area_center_point["x"]-default_scale * default_edge_length)/DEFAULT_WINDOW_WIDTH*stream_width):
                                                               int((area_center_point["x"]+default_scale * default_edge_length)/DEFAULT_WINDOW_WIDTH*stream_width)]
+            
+            fullscreen_focus_part[index] = cv2.resize(temp, (int(default_edge_length/DEFAULT_WINDOW_HEIGHT*stream_height), int(default_edge_length/DEFAULT_WINDOW_HEIGHT*stream_height)))
 
 
         # print(test_thread)
@@ -89,17 +91,7 @@ class VideoStreamWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         layout = QGridLayout(central_widget)
-        layout.setContentsMargins(10, 10, 10, 10)  # Add some margins to the layout
-
-        screen = app.primaryScreen()
-        screen_geometry = screen.geometry()
-
-        screen_width = screen_geometry.width()
-        screen_height = screen_geometry.height()
-
-        label_width_percentage = 0.3
-        label_height_percentage = 0.45
-        
+        layout.setContentsMargins(10, 10, 10, 10)  # Add some margins to the layout        
 
         for i in range(1):
             label = QLabel(f"Square {i+1}")
@@ -110,11 +102,11 @@ class VideoStreamWindow(QMainWindow):
             labels.append(label)
             layout.addWidget(labels[i], 0, i)  # Add the label to the layout
             # rtsp_link = "rtsp://admin:slowmonth49@192.168.1.100:554/Streaming/channels/101/"
-            # captures.append(cv2.VideoCapture("rtsp://admin:slowmonth49@192.168.1.100:554/Streaming/channels/101/"))
+            captures.append(cv2.VideoCapture("rtsp://admin:slowmonth49@192.168.1.100:554/Streaming/channels/101/"))
             # captures.append(cap)
             # cap.set(cv2.CAP_PROP_USERNAME, username)
             # cap.set(cv2.CAP_PROP_PASSWORD, password)
-            captures.append (cv2.VideoCapture(str(i)+".mp4"))
+            # captures.append (cv2.VideoCapture(str(i)+".mp4"))
             fullscreen_flags.append(0)
             # captures.append (cv2.VideoCapture(i))
 
